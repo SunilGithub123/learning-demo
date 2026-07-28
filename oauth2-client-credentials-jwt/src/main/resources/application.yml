@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: oauth2-client-credentials-jwt
+
+logging:
+  level:
+    org.springframework.security: INFO
+
+# Demo-only client registry. Secrets are plain text here purely so the
+# sample is easy to read and run; they are BCrypt-hashed at startup before
+# ever being compared (see RegisteredClientStore). Never store real client
+# secrets in plain text configuration - use a vault or secrets manager.
+demo:
+  oauth2:
+    token-ttl-seconds: 300
+    clients:
+      - client-id: demo-client
+        client-secret: demo-secret
+        scopes:
+          - orders.read
+          - orders.write
+      - client-id: readonly-client
+        client-secret: readonly-secret
+        scopes:
+          - orders.read
