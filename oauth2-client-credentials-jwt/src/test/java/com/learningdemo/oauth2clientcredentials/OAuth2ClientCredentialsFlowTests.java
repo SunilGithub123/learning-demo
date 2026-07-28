@@ -88,6 +88,32 @@ class OAuth2ClientCredentialsFlowTests {
                 .andExpect(jsonPath("$.error").value("invalid_scope"));
     }
 
+    @Test
+    void missingRequiredParameterYieldsInvalidRequestError() throws Exception {
+        mockMvc.perform(post("/oauth2/token")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("grant_type", "client_credentials")
+                        .param("client_id", "demo-client"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_request"));
+    }
+
+    @Test
+    void jwkSetIsPubliclyReadableAndNeverExposesThePrivateKey() throws Exception {
+        mockMvc.perform(get("/oauth2/jwks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keys[0].kty").value("RSA"))
+                .andExpect(jsonPath("$.keys[0].d").doesNotExist());
+    }
+
+    @Test
+    void healthEndpointIsPubliclyReadableWithoutLeakingDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
     private String issueAccessToken(String clientId, String clientSecret, String scope) throws Exception {
         MvcResult result = requestToken(clientId, clientSecret, scope)
                 .andExpect(status().isOk())

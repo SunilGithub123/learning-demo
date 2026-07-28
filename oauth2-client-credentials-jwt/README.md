@@ -5,6 +5,11 @@ end, using signed JWTs as access tokens. This is the standard pattern for
 machine-to-machine auth: one backend service calling another with no user in
 the loop.
 
+See [`docs/OAUTH2_GUIDE.md`](docs/OAUTH2_GUIDE.md) for a full write-up of the
+OAuth2 concepts involved, how this module's classes map to them, and a
+production-readiness review (what's hardened, and what a real deployment
+still needs beyond this module).
+
 To keep the demo runnable with zero external setup, a single Spring Boot app
 plays both sides of the protocol:
 
@@ -23,16 +28,27 @@ is purely to make the full flow easy to run and test locally.
 
 ## Registered demo clients
 
-Defined in `src/main/resources/application.yml`. Secrets are listed in plain
-text there only for readability; they are BCrypt-hashed at startup (see
-`RegisteredClientStore`) and never compared or stored as plain text
-afterwards. Do not do this in a real deployment — load pre-hashed secrets
-from a database or secrets manager instead.
+Defined in `src/main/resources/application.yml`, with plain-text defaults so
+the demo runs with zero setup. Every secret is overridable via environment
+variable (`DEMO_CLIENT_SECRET`, `READONLY_CLIENT_SECRET`), and whichever
+value is supplied is BCrypt-hashed at startup (see `RegisteredClientStore`)
+and never compared or stored as plain text afterwards. Don't put a real
+secret in this file — override via env var, and in a real deployment source
+it from a secrets manager instead.
 
 | client_id | client_secret | scopes |
 |---|---|---|
 | `demo-client` | `demo-secret` | `orders.read`, `orders.write` |
 | `readonly-client` | `readonly-secret` | `orders.read` |
+
+## Endpoints
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `POST /oauth2/token` | client_id/client_secret | Issue an access token (RFC 6749 §4.4) |
+| `GET /oauth2/jwks` | none | Public JWK Set (RFC 7517) for independent token validation |
+| `GET/POST /api/orders` | `Bearer` JWT | Sample protected resource, scope-gated |
+| `GET /actuator/health` | none | Liveness/readiness probe |
 
 ## Running
 
@@ -72,11 +88,13 @@ API responds `401` / `403` respectively.
 
 ## Tests
 
-`OAuth2ClientCredentialsFlowTests` runs the full flow with a random-port
-`TestRestTemplate`: rejecting unauthenticated calls, rejecting bad client
-credentials, rejecting unsupported grant types and out-of-scope requests,
-and confirming scope-based authorization (`demo-client` can read and write,
-`readonly-client` can only read).
+`OAuth2ClientCredentialsFlowTests` runs the full flow through the real
+servlet filter chain via `MockMvc`: rejecting unauthenticated calls,
+rejecting bad client credentials and malformed token requests, rejecting
+unsupported grant types and out-of-scope requests, confirming scope-based
+authorization (`demo-client` can read and write, `readonly-client` can only
+read), and checking that `/oauth2/jwks` and `/actuator/health` are safely
+public (no private key or internal detail leakage).
 
 ```bash
 mvn -pl oauth2-client-credentials-jwt test

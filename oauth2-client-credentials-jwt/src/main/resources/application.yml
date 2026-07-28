@@ -9,20 +9,39 @@ logging:
   level:
     org.springframework.security: INFO
 
-# Demo-only client registry. Secrets are plain text here purely so the
-# sample is easy to read and run; they are BCrypt-hashed at startup before
-# ever being compared (see RegisteredClientStore). Never store real client
-# secrets in plain text configuration - use a vault or secrets manager.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# This service's own identity as a token issuer. In a real deployment these
+# MUST match the externally-reachable issuer URL (whatever validates the
+# tokens checks "iss" and "aud" against exactly these values) - override via
+# DEMO_OAUTH2_ISSUER / DEMO_OAUTH2_AUDIENCE per environment rather than
+# editing this file.
 demo:
   oauth2:
+    issuer: ${DEMO_OAUTH2_ISSUER:https://learning-demo/oauth2-client-credentials-jwt}
+    audience: ${DEMO_OAUTH2_AUDIENCE:learning-demo-api}
     token-ttl-seconds: 300
+    # Demo-only client registry. Secrets fall back to plain-text defaults so
+    # the sample runs with zero setup, but every value is overridable via
+    # environment variable so a real deployment never has to put a real
+    # secret in this file. Whatever value is supplied, it is BCrypt-hashed at
+    # startup before ever being compared (see RegisteredClientStore) and the
+    # plain text is discarded - a real deployment should source these from a
+    # secrets manager / vault rather than environment variables at all.
     clients:
       - client-id: demo-client
-        client-secret: demo-secret
+        client-secret: ${DEMO_CLIENT_SECRET:demo-secret}
         scopes:
           - orders.read
           - orders.write
       - client-id: readonly-client
-        client-secret: readonly-secret
+        client-secret: ${READONLY_CLIENT_SECRET:readonly-secret}
         scopes:
           - orders.read

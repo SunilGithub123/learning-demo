@@ -11,13 +11,19 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
@@ -53,8 +59,21 @@ public class JwtConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(RSAKey rsaKey) throws JOSEException {
-        return NimbusJwtDecoder.withPublicKey(rsaKey.toRSAPublicKey()).build();
+    public JwtDecoder jwtDecoder(RSAKey rsaKey, DemoClientsProperties properties) throws JOSEException {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(rsaKey.toRSAPublicKey()).build();
+
+        // NimbusJwtDecoder only validates the signature and exp/nbf timestamps
+        // by default. Issuer and audience are deployment-specific, so Spring
+        // Security leaves them to the application - without this, any
+        // correctly-signed token would be accepted here regardless of who it
+        // was actually issued for.
+        List<OAuth2TokenValidator<Jwt>> validators = List.of(
+                new JwtTimestampValidator(),
+                new JwtIssuerValidator(properties.getIssuer()),
+                new AudienceValidator(properties.getAudience()));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(validators));
+
+        return decoder;
     }
 
     @Bean

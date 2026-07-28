@@ -8,8 +8,8 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -28,23 +28,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TokenController {
 
-    private static final String ISSUER = "https://learning-demo/oauth2-client-credentials-jwt";
-    private static final String AUDIENCE = "learning-demo-api";
-
     private final RegisteredClientStore clientStore;
-    private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final long tokenTtlSeconds;
+    private final String issuer;
+    private final String audience;
 
     public TokenController(
             RegisteredClientStore clientStore,
-            PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder,
             DemoClientsProperties properties) {
         this.clientStore = clientStore;
-        this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
         this.tokenTtlSeconds = properties.getTokenTtlSeconds();
+        this.issuer = properties.getIssuer();
+        this.audience = properties.getAudience();
     }
 
     @PostMapping(value = "/oauth2/token", consumes = "application/x-www-form-urlencoded")
@@ -61,8 +59,7 @@ public class TokenController {
                     HttpStatus.BAD_REQUEST);
         }
 
-        RegisteredClient client = clientStore.findById(clientId)
-                .filter(c -> passwordEncoder.matches(clientSecret, c.hashedSecret()))
+        RegisteredClient client = clientStore.authenticate(clientId, clientSecret)
                 .orElseThrow(() -> new OAuth2TokenException(
                         "invalid_client",
                         "Unknown client_id or invalid client_secret",
@@ -73,8 +70,9 @@ public class TokenController {
 
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(ISSUER)
-                .audience(List.of(AUDIENCE))
+                .id(UUID.randomUUID().toString())
+                .issuer(issuer)
+                .audience(List.of(audience))
                 .subject(client.clientId())
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(tokenTtlSeconds))

@@ -10,6 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class DemoClientsProperties {
 
     private long tokenTtlSeconds = 300;
+    private String issuer = "https://learning-demo/oauth2-client-credentials-jwt";
+    private String audience = "learning-demo-api";
     private List<ClientDefinition> clients = List.of();
 
     public long getTokenTtlSeconds() {
@@ -18,6 +20,22 @@ public class DemoClientsProperties {
 
     public void setTokenTtlSeconds(long tokenTtlSeconds) {
         this.tokenTtlSeconds = tokenTtlSeconds;
+    }
+
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public void setIssuer(String issuer) {
+        this.issuer = issuer;
+    }
+
+    public String getAudience() {
+        return audience;
+    }
+
+    public void setAudience(String audience) {
+        this.audience = audience;
     }
 
     public List<ClientDefinition> getClients() {
